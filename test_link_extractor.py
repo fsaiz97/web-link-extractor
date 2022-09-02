@@ -1,6 +1,6 @@
 import unittest
 import queue
-from unittest.mock import patch
+from unittest.mock import patch, mock_open
 from io import StringIO
 import sys
 
@@ -26,8 +26,10 @@ class TestProducer(unittest.TestCase):
         self.html_queue = queue.Queue()
 
     @patch('link_extractor.requests.get', side_effect=mocked_requests_get)
-    def test_producer_extracts_correctly(self, mocked_get):
-        producer(self.html_queue, ["https://test.com"])
+    @patch("builtins.open", new_callable=mock_open, read_data="https://test.com\n")
+    def test_producer_extracts_correctly(self, mocked_get, mocked_open):
+        with open("path/to/file") as file:
+            producer(self.html_queue, file)
         self.assertEqual(fake_html, self.html_queue.get()[1])
 
 

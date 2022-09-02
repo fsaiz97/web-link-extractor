@@ -15,8 +15,9 @@ class HyperlinkParser(HTMLParser):
                 self.links.append(attr[1])
 
 
-def producer(shared_queue, input_urls):
-    for url in input_urls:
+def producer(shared_queue, input_file):
+    for line in input_file:
+        url = line.strip()
         try:
             print("Extracting HTML from", url)
             extracted_data = requests.get(url).text
@@ -27,6 +28,8 @@ def producer(shared_queue, input_urls):
             print("Queuing HTMl from", url)
             shared_queue.put((url, extracted_data))
             print("Done")
+
+    print("Producer done")
 
     shared_queue.put(None)
 
@@ -46,7 +49,7 @@ def consumer(shared_queue):
 
 
 if __name__ == "__main__":
-    urls = ["https://google.com", ]
     html_queue = queue.Queue()
-    producer(html_queue, urls)
+    with open("input/urls.txt") as file:
+        producer(html_queue, file)
     consumer(html_queue)
