@@ -1,8 +1,10 @@
 import unittest
 import queue
 from unittest.mock import patch
+from io import StringIO
+import sys
 
-from link_extractor import producer
+from link_extractor import producer, consumer, HyperlinkParser
 
 
 fake_html = "<!doctype html>\n<html>\n<head>\n<title>This is the title of the webpage!</title>\n</head>" \
@@ -10,12 +12,12 @@ fake_html = "<!doctype html>\n<html>\n<head>\n<title>This is the title of the we
                     "appear on the page, just like this <strong>p</strong> tag and its contents.</p>\n</body>\n</html>"
 
 
-def mocked_requests_get(*args, **kwargs):
+def mocked_requests_get(*args):
     class MockResponse:
         def __init__(self, html):
             self.text = html
 
-    if args[0] == "http://test.com":
+    if args[0] == "https://test.com":
         return MockResponse(fake_html)
 
 
@@ -25,11 +27,38 @@ class TestProducer(unittest.TestCase):
 
     @patch('link_extractor.requests.get', side_effect=mocked_requests_get)
     def test_producer_extracts_correctly(self, mocked_get):
-        producer(self.html_queue, ["http://test.com"])
-        self.assertEqual(self.html_queue.get(), fake_html)
+        producer(self.html_queue, ["https://test.com"])
+        self.assertEqual(fake_html, self.html_queue.get()[1])
 
-    def test_producer_handles_invalid_url(self):
-        producer(self.html_queue, ["http//test.com"])
+
+class TestHyperlinkParser(unittest.TestCase):
+    def test_parser_finds_link(self):
+        parser = HyperlinkParser()
+        parser.feed('<a href="https://test.com">')
+        self.assertEqual("https://test.com", parser.links[0])
+
+    def test_parser_finds_multiple_links(self):
+        parser = HyperlinkParser()
+        parser.feed('<a href="https://test.com"><a href="https://google.com">')
+        self.assertEqual(["https://test.com", "https://google.com"], parser.links)
+
+
+class TestConsumer(unittest.TestCase):
+    def setUp(self):
+        self.html_queue = queue.Queue()
+
+    def test_consumer_extracts_all_links(self):
+        output_trap = StringIO()
+        old_stdout = sys.stdout
+        sys.stdout = output_trap
+        self.html_queue.put(("https://input.com", '<a href="https://test.com"><a href="https://google.com">'))
+        self.html_queue.put(None)
+
+        consumer(self.html_queue)
+        sys.stdout = old_stdout
+        self.assertEqual("https://input.com:\n['https://test.com', 'https://google.com']\nConsumer done\n",
+                         output_trap.getvalue())
+        output_trap.close()
 
 
 if __name__ == "__main__":
