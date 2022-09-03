@@ -1,8 +1,6 @@
 import unittest
 import queue
 from unittest.mock import patch, mock_open
-from io import StringIO
-import sys
 from random import random
 import os
 

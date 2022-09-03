@@ -11,3 +11,9 @@ which is output to a file along with the url that the list of links came from.
 
 The script handles schema, connection and timeout errors, printing the error to the terminal and skipping the
 broken url. There are a few unit tests to ensure the producer and consumer work as expected.
+
+The dist folder contains an exe to run the script on Windows without needing python. The exe currently
+doesn't work by double-clicking, you must run it from a command line.
+
+To run the unit tests, you should have python installed, then run one of the activate scripts in venv\scripts
+and then run the test_link_extractor.py script.

@@ -2,6 +2,7 @@ import requests
 import queue
 from threading import Thread
 import sys
+import os
 
 from html.parser import HTMLParser
 
@@ -18,23 +19,27 @@ class HyperlinkParser(HTMLParser):
 
 
 def producer(shared_queue, input_path):
-    with open(input_path) as input_file:
-        for line in input_file:
-            url = line.strip()
-            try:
-                print("Producer - Extracting HTML from", url)
-                extracted_data = requests.get(url, timeout=(3.10, 5)).text
-            except requests.exceptions.MissingSchema:
-                print("Producer - Error (", url, "): Schema missing. Skipping...", sep="", file=sys.stderr)
-            except requests.exceptions.ConnectTimeout:
-                print("Producer - Error (", url, "): Timeout while trying to connect. Skipping...", sep="", file=sys.stderr)
-            except requests.exceptions.ConnectionError:
-                print("Producer - Error (", url, "): Connection failed. Skipping...", sep="", file=sys.stderr)
-            else:
-                print("Producer - Extraction done")
-                print("Producer - Queuing HTMl from", url)
-                shared_queue.put((url, extracted_data))
-                print("Producer - Queuing done")
+    try:
+        with open(input_path) as input_file:
+            for line in input_file:
+                url = line.strip()
+                try:
+                    print("Producer - Extracting HTML from", url)
+                    extracted_data = requests.get(url, timeout=(3.10, 5)).text
+                except requests.exceptions.MissingSchema:
+                    print("Producer - Error (", url, "): Schema missing. Skipping...", sep="", file=sys.stderr)
+                except requests.exceptions.ConnectTimeout:
+                    print("Producer - Error (", url, "): Timeout while trying to connect. Skipping...", sep="", file=sys.stderr)
+                except requests.exceptions.ConnectionError:
+                    print("Producer - Error (", url, "): Connection failed. Skipping...", sep="", file=sys.stderr)
+                else:
+                    print("Producer - Extraction done")
+                    print("Producer - Queuing HTMl from", url)
+                    shared_queue.put((url, extracted_data))
+                    print("Producer - Queuing done")
+    except FileNotFoundError as e:
+        print(e)
+        os._exit(-1)
 
     print("Producer done")
 
@@ -61,7 +66,6 @@ def consumer(shared_queue, output_file):
 if __name__ == "__main__":
     html_queue = queue.Queue()
     input_path = "files/input.txt"
-
     producer = Thread(target=producer, args=(html_queue, input_path))
     producer.start()
 
@@ -70,6 +74,8 @@ if __name__ == "__main__":
     consumer.start()
 
     producer.join()
-    producer.join()
+    consumer.join()
 
     output_file.close()
+
+    input("Press enter to finish...")
