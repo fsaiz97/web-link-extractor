@@ -1,6 +1,7 @@
 import requests
 import queue
 from threading import Thread
+import sys
 
 from html.parser import HTMLParser
 
@@ -21,15 +22,19 @@ def producer(shared_queue, input_path):
         for line in input_file:
             url = line.strip()
             try:
-                print("Extracting HTML from", url)
-                extracted_data = requests.get(url).text
+                print("Producer - Extracting HTML from", url)
+                extracted_data = requests.get(url, timeout=(3.10, 5)).text
             except requests.exceptions.MissingSchema:
-                print("Error:", url, "misshapen. Skipping")
+                print("Producer - Error (", url, "): Schema missing. Skipping...", sep="", file=sys.stderr)
+            except requests.exceptions.ConnectTimeout:
+                print("Producer - Error (", url, "): Timeout while trying to connect. Skipping...", sep="", file=sys.stderr)
+            except requests.exceptions.ConnectionError:
+                print("Producer - Error (", url, "): Connection failed. Skipping...", sep="", file=sys.stderr)
             else:
-                print("Done")
-                print("Queuing HTMl from", url)
+                print("Producer - Extraction done")
+                print("Producer - Queuing HTMl from", url)
                 shared_queue.put((url, extracted_data))
-                print("Done")
+                print("Producer - Queuing done")
 
     print("Producer done")
 
@@ -43,9 +48,12 @@ def consumer(shared_queue, output_file):
         if item is None:
             break
 
+        print("Consumer - Parsing HTML from", item[0])
         parser.feed(item[1])
+        print("Consumer - Parser done")
 
         print(item[0], ":\n", parser.links, sep='', file=output_file)
+        print("Consumer -", item[0], "links outputted")
 
     print("Consumer done")
 
